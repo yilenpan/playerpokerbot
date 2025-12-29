@@ -8,10 +8,13 @@ from typing import Optional
 @dataclass
 class ParsedAction:
     """Parsed poker action."""
-    action_type: str  # fold, check, call, raise, all_in
+    action_type: str  # fold, check, call, raise, all_in, quit, error
     amount: Optional[int] = None
+    error_message: Optional[str] = None  # For error actions
 
     def __str__(self):
+        if self.action_type == "error":
+            return f"Error: {self.error_message or 'Unknown error'}"
         if self.action_type in ("fold", "check", "call"):
             return self.action_type.capitalize()
         elif self.amount:

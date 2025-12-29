@@ -16,6 +16,9 @@ Usage:
 
     # Custom stack size
     python scripts/play.py --stack 5000 --blinds 25/50
+
+    # Dump LLM reasoning traces to a file
+    python scripts/play.py --trace-file traces.jsonl
 """
 import argparse
 import sys
@@ -44,6 +47,8 @@ def parse_args():
                        help="Blinds as SB/BB (default: 50/100)")
     parser.add_argument("--hands", type=int, default=10,
                        help="Number of hands to play (default: 10)")
+    parser.add_argument("--trace-file", "-t", type=Path,
+                       help="File to dump LLM reasoning traces (JSONL format)")
     return parser.parse_args()
 
 
@@ -61,7 +66,7 @@ def main():
     for i in range(args.opponents):
         model = args.models[i % len(args.models)]
         name = f"Ollama-{i+1}" if args.opponents > 1 else "Ollama"
-        player = OllamaPlayer(name, model, args.endpoint)
+        player = OllamaPlayer(name, model, args.endpoint, trace_file=args.trace_file)
 
         if not player.check_connection():
             print(f"{RED}Error: Cannot connect to Ollama or model '{model}' not found{RESET}")

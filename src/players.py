@@ -1,13 +1,16 @@
 """Player implementations for poker."""
 
+import json
 import requests
-from typing import List, Tuple
+from datetime import datetime
+from pathlib import Path
+from typing import List, Tuple, Optional
 
 try:
-    from .cards import pretty_card, score_hole_cards, RESET, BOLD, RED, GREEN, CYAN
+    from .cards import pretty_card, format_cards, score_hole_cards, RESET, BOLD, RED, GREEN, CYAN
     from .actions import ParsedAction, ActionParser
 except ImportError:
-    from cards import pretty_card, score_hole_cards, RESET, BOLD, RED, GREEN, CYAN
+    from cards import pretty_card, format_cards, score_hole_cards, RESET, BOLD, RED, GREEN, CYAN
     from actions import ParsedAction, ActionParser
 
 
@@ -31,6 +34,7 @@ class OllamaPlayer:
         endpoint: str = "http://localhost:11434",
         temperature: float = 0.6,
         max_tokens: int = 2048,
+        trace_file: Optional[Path] = None,
     ):
         self.name = name
         self.model = model
@@ -38,6 +42,7 @@ class OllamaPlayer:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.parser = ActionParser()
+        self.trace_file = trace_file
 
     def check_connection(self) -> bool:
         """Check Ollama connection."""
@@ -68,8 +73,9 @@ class OllamaPlayer:
             can_check = to_call == 0
             return self.parser.parse(response, can_check, stack)
         except Exception as e:
-            print(f"{RED}[{self.name}] Error: {e}{RESET}")
-            return ParsedAction("fold")
+            error_msg = str(e)
+            print(f"{RED}[{self.name}] Model error: {error_msg}{RESET}")
+            return ParsedAction("error", error_message=error_msg)
 
     def _build_prompt(self, hole_cards, board, pot, to_call, stack, position, num_players) -> str:
         """Build prompt."""
@@ -118,7 +124,24 @@ class OllamaPlayer:
         content = msg.get("content", "")
         thinking = msg.get("thinking", "")
 
+        # Log reasoning trace if trace file configured
+        if self.trace_file:
+            self._log_trace(prompt, thinking, content)
+
         return content if content else thinking
+
+    def _log_trace(self, prompt: str, thinking: str, content: str):
+        """Log reasoning trace to file."""
+        trace = {
+            "timestamp": datetime.now().isoformat(),
+            "player": self.name,
+            "model": self.model,
+            "prompt": prompt,
+            "thinking": thinking,
+            "response": content,
+        }
+        with open(self.trace_file, "a") as f:
+            f.write(json.dumps(trace) + "\n")
 
 
 class HumanPlayer:
@@ -138,8 +161,6 @@ class HumanPlayer:
         max_raise: int,
     ) -> ParsedAction:
         """Get action from human via terminal."""
-        from .cards import format_cards
-
         print()
         print(f"  {BOLD}Your cards:{RESET} {format_cards(hole_cards)}")
         print(f"  {BOLD}Pot:{RESET} {pot} chips")

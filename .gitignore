@@ -49,3 +49,6 @@ htmlcov/
 # Claude Flow / Swarm
 .claude-flow/
 .swarm/
+
+traces/
+traces.jsonl

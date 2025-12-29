@@ -133,7 +133,7 @@ class PokerGame:
         # Get dealable cards from PokerKit (respects what's already dealt)
         dealable = list(state.get_dealable_cards())
         random.shuffle(dealable)
-        deck = [str(c) for c in dealable]
+        deck = dealable  # Keep as Card objects for deal_board()
 
         # Show human's cards
         human_cards = hole_cards[0]
@@ -152,30 +152,23 @@ class PokerGame:
             # Deal community cards
             if street == "Flop":
                 board = [deck.pop(), deck.pop(), deck.pop()]
-                try:
-                    for card in board:
-                        state.deal_board(card)
-                except Exception:
-                    pass
-                print(f"\n  {BOLD}=== FLOP ==={RESET} {format_cards(board)}")
+                for card in board:
+                    state.deal_board(card)
+                print(f"\n  {BOLD}=== FLOP ==={RESET} {format_cards([str(c) for c in board])}")
             elif street == "Turn":
                 board.append(deck.pop())
-                try:
-                    state.deal_board(board[-1])
-                except Exception:
-                    pass
-                print(f"\n  {BOLD}=== TURN ==={RESET} {format_cards(board)}")
+                state.deal_board(board[-1])
+                print(f"\n  {BOLD}=== TURN ==={RESET} {format_cards([str(c) for c in board])}")
             elif street == "River":
                 board.append(deck.pop())
-                try:
-                    state.deal_board(board[-1])
-                except Exception:
-                    pass
-                print(f"\n  {BOLD}=== RIVER ==={RESET} {format_cards(board)}")
+                state.deal_board(board[-1])
+                print(f"\n  {BOLD}=== RIVER ==={RESET} {format_cards([str(c) for c in board])}")
             elif street == "Preflop":
                 print(f"\n  {BOLD}=== PREFLOP ==={RESET}")
 
             # Betting loop
+            board_strs = [str(c) for c in board]  # Convert for player display
+            error_occurred = False
             while state.actor_index is not None:
                 actor = state.actor_index
                 name = self._player_name(actor)
@@ -183,7 +176,7 @@ class PokerGame:
                 # Get action
                 if actor == 0:
                     # Human's turn
-                    action = self._get_human_action(state, hole_cards[0], board)
+                    action = self._get_human_action(state, hole_cards[0], board_strs)
                     if action.action_type == "quit":
                         quit_requested = True
                         action = ParsedAction("fold")
@@ -193,8 +186,12 @@ class PokerGame:
                         self.opponents[actor - 1],
                         state,
                         hole_cards[actor],
-                        board
+                        board_strs
                     )
+                    if action.action_type == "error":
+                        print(f"  {RED}{name} failed to respond - skipping hand{RESET}")
+                        error_occurred = True
+                        break
                     print(f"  {YELLOW}{name} {action}{RESET}")
 
                 # Execute action
@@ -203,11 +200,11 @@ class PokerGame:
                 if quit_requested:
                     break
 
-            if quit_requested:
+            if quit_requested or error_occurred:
                 break
 
         # Showdown / determine winner
-        self._resolve_hand(state, hole_cards, board)
+        self._resolve_hand(state, hole_cards, [str(c) for c in board])
 
         return not quit_requested
 
