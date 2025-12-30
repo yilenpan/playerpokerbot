@@ -15,8 +15,8 @@ Interactive No-Limit Texas Hold'em poker game against Ollama LLM models.
 
 ```bash
 # Clone the repo
-git clone https://github.com/yilenpan/player_poker_bot.git
-cd player_poker_bot
+git clone https://github.com/yilenpan/playerpokerbot.git
+cd playerpokerbot
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -63,11 +63,11 @@ The web UI provides a visual poker table with real-time streaming of LLM thinkin
 
 ```bash
 # Terminal 1: Start the backend server
-cd player_poker_bot
+cd playerpokerbot
 python -m server.main
 
 # Terminal 2: Start the web frontend
-cd player_poker_bot/web
+cd playerpokerbot/web
 npm run dev
 ```
 
@@ -148,7 +148,7 @@ python scripts/play.py \
 ## Project Structure
 
 ```
-player_poker_bot/
+playerpokerbot/
 ├── src/                    # Terminal game
 │   ├── cards.py            # Card utilities and formatting
 │   ├── actions.py          # Action parsing (PHH format)
