@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* Poker table theme */
+:root {
+  --table-felt: #1a472a;
+  --table-edge: #5c4033;
+  --card-white: #f5f5f0;
+  --card-red: #dc143c;
+  --card-black: #1a1a1a;
+  --chip-gold: #ffd700;
+  --active-player: #3b82f6;
+  --thinking-bubble: #8b5cf6;
+  --action-button: #10b981;
+  --fold-button: #f43f5e;
+  --human-player: #14b8a6;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Monospace for numbers and thinking text */
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+/* Card styling */
+.card {
+  aspect-ratio: 5 / 7;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.card-red {
+  color: var(--card-red);
+}
+
+.card-black {
+  color: var(--card-black);
+}
+
+/* Thinking bubble animation */
+@keyframes pulse-border {
+  0%, 100% {
+    border-color: rgba(139, 92, 246, 0.5);
+  }
+  50% {
+    border-color: rgba(139, 92, 246, 1);
+  }
+}
+
+.thinking-active {
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+/* Timer warning animation */
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.timer-warning {
+  animation: pulse-warning 1s ease-in-out infinite;
+}
+
+.timer-critical {
+  animation: pulse-warning 0.5s ease-in-out infinite;
+}
+
+/* Scrollbar styling for thinking bubbles */
+.thinking-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thinking-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+}
+
+.thinking-scroll::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 2px;
+}
+
+/* Button hover effects */
+.action-btn {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Typing cursor effect */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.typing-cursor::after {
+  content: '|';
+  animation: blink 1s infinite;
+  margin-left: 2px;
+  color: var(--thinking-bubble);
+}

@@ -291,7 +291,10 @@ App
 |   +-- HandInfo                 # Current hand metadata
 |       +-- HandNumber
 |       +-- Street               # Preflop, Flop, Turn, River
-|       +-- Timer                # Turn timer (optional)
+|
+|   +-- TurnTimer                # Countdown timer for human player
+|       +-- CircularProgress     # Visual countdown ring
+|       +-- TimeRemaining        # Seconds remaining text
 |
 +-- GameOverlay                  # Modal overlays
     +-- HandResult               # Winner announcement
@@ -325,7 +328,102 @@ Visual Behavior:
 - **Complete**: Action tag highlighted in green, rest of text visible
 - **Overflow**: Scrollable with fade gradient at top/bottom edges
 
-#### 6.3.2 PlayerSeat Component
+#### 6.3.2 TurnTimer Component
+
+```typescript
+interface TurnTimerProps {
+  isActive: boolean;           // Timer is running
+  totalSeconds: number;        // Total time allowed (default: 30)
+  remainingSeconds: number;    // Current time remaining
+  onTimeout: () => void;       // Callback when timer expires
+}
+
+const TIMER_CONFIG = {
+  totalSeconds: 30,            // 30 second turn limit
+  warningThreshold: 10,        // Turn yellow at 10 seconds
+  criticalThreshold: 5,        // Turn red at 5 seconds
+};
+```
+
+Visual Behavior:
+- **Inactive**: Hidden or grayed out when not human's turn
+- **Active (>10s)**: Green circular progress ring, white text
+- **Warning (5-10s)**: Yellow ring, pulsing animation begins
+- **Critical (<5s)**: Red ring, faster pulse, larger text
+- **Timeout**: Auto-fold triggered, toast notification shown
+
+Visual Design:
+```
+     ╭─────────╮
+    ╱           ╲
+   │     23      │    <-- Seconds remaining (large, centered)
+   │    secs     │    <-- Label (small, below)
+    ╲           ╱
+     ╰─────────╯
+   [===-------]       <-- Progress bar alternative (simpler)
+```
+
+Server-Side Timer Logic:
+```python
+class TurnTimer:
+    """Server-authoritative turn timer."""
+
+    def __init__(self, timeout_seconds: int = 30):
+        self.timeout_seconds = timeout_seconds
+        self.start_time: Optional[float] = None
+        self._timeout_task: Optional[asyncio.Task] = None
+
+    async def start(self, on_timeout: Callable[[], Awaitable[None]]) -> None:
+        """Start the timer, calling on_timeout if it expires."""
+        self.start_time = time.time()
+        self._timeout_task = asyncio.create_task(
+            self._wait_and_timeout(on_timeout)
+        )
+
+    async def cancel(self) -> None:
+        """Cancel the timer (player acted in time)."""
+        if self._timeout_task:
+            self._timeout_task.cancel()
+            self._timeout_task = None
+
+    async def _wait_and_timeout(
+        self,
+        on_timeout: Callable[[], Awaitable[None]]
+    ) -> None:
+        try:
+            await asyncio.sleep(self.timeout_seconds)
+            await on_timeout()
+        except asyncio.CancelledError:
+            pass  # Timer was cancelled, player acted
+
+    def get_remaining(self) -> int:
+        """Get remaining seconds."""
+        if self.start_time is None:
+            return self.timeout_seconds
+        elapsed = time.time() - self.start_time
+        return max(0, int(self.timeout_seconds - elapsed))
+```
+
+WebSocket Events for Timer:
+```python
+class TimerStartEvent(BaseModel):
+    type: Literal["timer_start"] = "timer_start"
+    player_id: int
+    total_seconds: int
+    timestamp: float
+
+class TimerTickEvent(BaseModel):
+    type: Literal["timer_tick"] = "timer_tick"
+    player_id: int
+    remaining_seconds: int
+
+class TimerExpiredEvent(BaseModel):
+    type: Literal["timer_expired"] = "timer_expired"
+    player_id: int
+    action_taken: str  # "fold"
+```
+
+#### 6.3.3 PlayerSeat Component
 
 ```typescript
 interface PlayerSeatProps {
@@ -388,6 +486,16 @@ interface GameState {
   
   // LLM Thinking
   thinkingStreams: Map<number, ThinkingStream>;
+
+  // Turn Timer
+  timer: TurnTimerState | null;
+}
+
+interface TurnTimerState {
+  playerId: number;
+  totalSeconds: number;
+  remainingSeconds: number;
+  isExpired: boolean;
 }
 
 interface ThinkingStream {
@@ -618,6 +726,9 @@ Client                                    Server
 | `thinking_start` | `{player_id, player_name}` | LLM started thinking |
 | `thinking_token` | `{player_id, token}` | Single token from LLM |
 | `thinking_complete` | `{player_id, action, full_text}` | LLM finished |
+| `timer_start` | `{player_id, total_seconds}` | Turn timer started |
+| `timer_tick` | `{player_id, remaining_seconds}` | Timer update (every second) |
+| `timer_expired` | `{player_id, action_taken}` | Timer ran out, auto-folded |
 | `hand_complete` | `{winners, amounts, revealed_cards}` | Hand finished |
 | `session_complete` | `{final_stacks, summary}` | Session ended |
 | `error` | `{code, message}` | Error notification |
@@ -1760,17 +1871,17 @@ ruff>=0.0.280
 
 ---
 
-## 19. Open Questions
+## 19. Decisions (Resolved)
 
-| ID | Question | Impact | Proposed Resolution |
-|----|----------|--------|---------------------|
-| OQ1 | Should session state persist across server restarts? | Architecture complexity | **No for MVP** - sessions are ephemeral |
-| OQ2 | Support for remote Ollama instances (not localhost)? | Configuration, security | **Yes** - configurable endpoint, document security implications |
-| OQ3 | Multiple browser tabs/sessions for same game? | Sync complexity | **No** - one tab per session, reject duplicate connections |
-| OQ4 | Hand history export feature? | Scope creep | **Defer** - add in future iteration |
-| OQ5 | Should thinking text persist between hands? | UX decision | **No** - clear on new hand for focus |
-| OQ6 | Minimum viable viewport size? | Responsive design effort | **1024px width** - focus on desktop |
-| OQ7 | Auto-play when human is away/timed out? | UX, implementation | **Fold** - with warning toast |
+| ID | Question | Decision |
+|----|----------|----------|
+| OQ1 | Should session state persist across server restarts? | **No** - sessions are ephemeral, in-memory only |
+| OQ2 | Support for remote Ollama instances (not localhost)? | **No** - localhost only for now |
+| OQ3 | Multiple browser tabs/sessions for same game? | **No** - one tab per session, reject duplicate connections |
+| OQ4 | Hand history export feature? | **Deferred** - add in future iteration |
+| OQ5 | Should thinking text persist between hands? | **No** - clear on new hand for focus |
+| OQ6 | Minimum viable viewport size? | **1024px width** - focus on desktop |
+| OQ7 | Auto-play when human is away/timed out? | **Auto-fold** with visible countdown timer |
 
 ---
 

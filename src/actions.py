@@ -39,10 +39,10 @@ class ActionParser:
 
         if self.RE_ALL_IN.search(text):
             return ParsedAction("all_in", stack)
-        if self.RE_FOLD.search(text):
-            return ParsedAction("fold")
         if self.RE_CC.search(text):
             return ParsedAction("check" if can_check else "call")
+        if self.RE_FOLD.search(text):
+            return ParsedAction("fold")
 
         match = self.RE_CBR.search(text)
         if match:

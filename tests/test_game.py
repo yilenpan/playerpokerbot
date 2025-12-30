@@ -906,3 +906,71 @@ class TestIntegration:
         assert hands_played[0] == 3
         assert game.stacks[0] == 8500
         assert game.stacks[1] == 11500
+
+
+class TestShutdown:
+    """Tests for shutdown/cleanup behavior."""
+
+    def test_shutdown_calls_opponent_shutdown(self):
+        """PokerGame.shutdown() should call shutdown on all opponents."""
+        human = Mock(spec=HumanPlayer)
+        opponent1 = make_opponent("Bot1")
+        opponent2 = make_opponent("Bot2")
+        game = PokerGame(human, [opponent1, opponent2])
+
+        game.shutdown()
+
+        opponent1.shutdown.assert_called_once()
+        opponent2.shutdown.assert_called_once()
+
+    def test_play_session_calls_shutdown_on_completion(self):
+        """play_session should call shutdown when session completes normally."""
+        human = Mock(spec=HumanPlayer)
+        opponent = make_opponent()
+        game = PokerGame(human, [opponent], starting_stack=10000)
+
+        with patch.object(game, '_play_hand', return_value=True):
+            with patch.object(game, 'shutdown') as mock_shutdown:
+                game.play_session(num_hands=2)
+
+        mock_shutdown.assert_called_once()
+
+    def test_play_session_calls_shutdown_on_quit(self):
+        """play_session should call shutdown even when player quits."""
+        human = Mock(spec=HumanPlayer)
+        opponent = make_opponent()
+        game = PokerGame(human, [opponent], starting_stack=10000)
+
+        # Simulate quitting on second hand
+        with patch.object(game, '_play_hand', side_effect=[True, False]):
+            with patch.object(game, 'shutdown') as mock_shutdown:
+                game.play_session(num_hands=10)
+
+        mock_shutdown.assert_called_once()
+
+    def test_play_session_calls_shutdown_when_player_broke(self):
+        """play_session should call shutdown when a player goes broke."""
+        human = Mock(spec=HumanPlayer)
+        opponent = make_opponent()
+        game = PokerGame(human, [opponent], starting_stack=10000)
+
+        def go_broke():
+            game.stacks[0] = 0  # Human goes broke
+            return True
+
+        with patch.object(game, '_play_hand', side_effect=go_broke):
+            with patch.object(game, 'shutdown') as mock_shutdown:
+                game.play_session(num_hands=10)
+
+        mock_shutdown.assert_called_once()
+
+    def test_shutdown_handles_multiple_opponents(self):
+        """shutdown should call shutdown on all opponents in multi-opponent game."""
+        human = Mock(spec=HumanPlayer)
+        opponents = [make_opponent(f"Bot{i}") for i in range(4)]
+        game = PokerGame(human, opponents)
+
+        game.shutdown()
+
+        for opp in opponents:
+            opp.shutdown.assert_called_once()

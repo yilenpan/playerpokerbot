@@ -55,6 +55,25 @@ class OllamaPlayer:
             pass
         return False
 
+    def shutdown(self) -> bool:
+        """Unload model from Ollama to free memory. Returns True if successful."""
+        try:
+            # Send a request with keep_alive=0 to unload the model
+            payload = {
+                "model": self.model,
+                "keep_alive": 0,
+            }
+            r = requests.post(f"{self.endpoint}/api/generate", json=payload, timeout=10)
+            if r.status_code == 200:
+                print(f"{GREEN}[{self.name}] Model unloaded{RESET}")
+                return True
+            else:
+                print(f"{RED}[{self.name}] Failed to unload model: {r.status_code}{RESET}")
+                return False
+        except Exception as e:
+            print(f"{RED}[{self.name}] Error unloading model: {e}{RESET}")
+            return False
+
     def get_action(
         self,
         hole_cards: Tuple[str, str],

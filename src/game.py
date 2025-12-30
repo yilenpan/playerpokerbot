@@ -1,6 +1,8 @@
 """Poker game engine using PokerKit."""
 
+import os
 import random
+import time
 from typing import List, Dict
 
 from pokerkit import NoLimitTexasHoldem, Automation
@@ -66,6 +68,7 @@ class PokerGame:
                 break
 
         self._show_final_results()
+        self.shutdown()
 
     def _play_hand(self) -> bool:
         """Play a single hand. Returns False to quit."""
@@ -142,6 +145,7 @@ class PokerGame:
 
         board = []
         quit_requested = False
+        stacks_before = self.stacks.copy()  # Track for winner detection
 
         # Betting rounds
         streets = ["Preflop", "Flop", "Turn", "River"]
@@ -204,7 +208,7 @@ class PokerGame:
                 break
 
         # Showdown / determine winner
-        self._resolve_hand(state, hole_cards, [str(c) for c in board])
+        self._resolve_hand(state, hole_cards, [str(c) for c in board], stacks_before)
 
         return not quit_requested
 
@@ -254,20 +258,119 @@ class PokerGame:
                 except Exception:
                     pass
 
-    def _resolve_hand(self, state, hole_cards, board):
+    def _resolve_hand(self, state, hole_cards, board, stacks_before):
         """Resolve hand and update stacks."""
-        print()
-
         # Update stacks from state
         if hasattr(state, 'stacks'):
             for i in range(self.num_players):
                 self.stacks[i] = state.stacks[i]
 
-        # Show results
-        print(f"  {BOLD}Results:{RESET}")
+        # Determine winner(s) by stack change
+        winners = []
+        max_gain = 0
+        for i in range(self.num_players):
+            gain = self.stacks[i] - stacks_before[i]
+            if gain > max_gain:
+                max_gain = gain
+                winners = [i]
+            elif gain == max_gain and gain > 0:
+                winners.append(i)
+
+        # Clear terminal to hide reasoning traces
+        os.system('clear' if os.name != 'nt' else 'cls')
+
+        # Celebration animation
+        if winners and max_gain > 0:
+            winner_names = [self._player_name(w) for w in winners]
+            winner_text = ', '.join(winner_names)
+            self._celebration_animation(winner_text, max_gain)
+
+        # Show hand result header
+        print()
+        print(f"{BOLD}{'='*60}{RESET}")
+        print(f"{BOLD}{CYAN}  HAND #{self.hand_num} COMPLETE{RESET}")
+        print(f"{BOLD}{'='*60}{RESET}")
+
+        # Highlight winner(s)
+        if winners and max_gain > 0:
+            winner_names = [self._player_name(w) for w in winners]
+            print()
+            print(f"  {BOLD}{YELLOW}★ WINNER: {', '.join(winner_names)} (+{max_gain} chips) ★{RESET}")
+            print()
+
+        # Show all stacks (public information)
+        print(f"  {BOLD}Current Stacks:{RESET}")
+        print(f"  {'-'*40}")
         for i in range(self.num_players):
             name = self._player_name(i)
-            print(f"    {name}: {self.stacks[i]} chips")
+            diff = self.stacks[i] - stacks_before[i]
+            if diff > 0:
+                diff_str = f"{GREEN}+{diff}{RESET}"
+            elif diff < 0:
+                diff_str = f"{RED}{diff}{RESET}"
+            else:
+                diff_str = "0"
+
+            # Highlight winner row
+            if i in winners and max_gain > 0:
+                print(f"  {YELLOW}► {name}: {self.stacks[i]} chips ({diff_str}){RESET}")
+            else:
+                print(f"    {name}: {self.stacks[i]} chips ({diff_str})")
+        print(f"  {'-'*40}")
+        print()
+
+        # Prompt to continue
+        try:
+            input(f"  {BOLD}Press Enter to start next hand...{RESET}")
+        except (EOFError, KeyboardInterrupt):
+            pass
+
+    def _celebration_animation(self, winner_name: str, chips_won: int):
+        """Display celebration animation for winner."""
+        frames = [
+            [
+                "                                                            ",
+                "                    ★  ★  ★  ★  ★                           ",
+                "                 ★                 ★                        ",
+                "               ★    W I N N E R !    ★                      ",
+                "                 ★                 ★                        ",
+                "                    ★  ★  ★  ★  ★                           ",
+                "                                                            ",
+            ],
+            [
+                "              ✦                          ✦                  ",
+                "                   ★  ★  ★  ★  ★                            ",
+                "        ✦       ★                 ★       ✦                 ",
+                "              ★    W I N N E R !    ★                       ",
+                "        ✦       ★                 ★       ✦                 ",
+                "                   ★  ★  ★  ★  ★                            ",
+                "              ✦                          ✦                  ",
+            ],
+            [
+                "         ✧          ✦          ✦          ✧                 ",
+                "    ✦               ★  ★  ★  ★  ★               ✦           ",
+                "              ✧  ★                 ★  ✧                     ",
+                "         ✦      ★    W I N N E R !    ★      ✦              ",
+                "              ✧  ★                 ★  ✧                     ",
+                "    ✦               ★  ★  ★  ★  ★               ✦           ",
+                "         ✧          ✦          ✦          ✧                 ",
+            ],
+        ]
+
+        # Animate 2 cycles
+        for _ in range(2):
+            for frame in frames:
+                os.system('clear' if os.name != 'nt' else 'cls')
+                print()
+                for line in frame:
+                    print(f"{YELLOW}{BOLD}{line}{RESET}")
+                print()
+                print(f"{BOLD}{GREEN}        {winner_name} wins +{chips_won} chips!{RESET}")
+                print()
+                time.sleep(0.25)
+
+        # Final frame
+        os.system('clear' if os.name != 'nt' else 'cls')
 
     def _show_final_results(self):
         """Show final session results."""
@@ -309,3 +412,10 @@ class PokerGame:
 
         rel_pos = (idx - self.button) % self.num_players
         return positions[rel_pos] if rel_pos < len(positions) else f"P{idx}"
+
+    def shutdown(self):
+        """Shutdown all Ollama opponents to free memory."""
+        print()
+        print(f"{BOLD}Shutting down models...{RESET}")
+        for opponent in self.opponents:
+            opponent.shutdown()
