@@ -19,7 +19,17 @@ SYSTEM_PROMPT = """You are an expert poker player. Analyze and decide the optima
 Output format: <action>ACTION</action>
 - <action>f</action> = fold
 - <action>cc</action> = call/check
-- <action>cbr AMOUNT</action> = bet/raise to AMOUNT
+- <action>cbr X</action> = bet/raise to X (multiple of big blind)
+
+VALID:
+<action>f</action>
+<action>cc</action>
+<action>cbr 6</action>
+
+INVALID:
+<action>fold</action> -- NOT PHH FORMAT
+<action>p6 cc</action> -- DO NOT SPECIFY PLAYER
+<action>cbr 1 5</action> -- INVALID PHH
 
 Think first, then output ONE action tag."""
 
