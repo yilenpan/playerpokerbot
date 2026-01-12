@@ -5,6 +5,8 @@ from .config import EvalConfig, ModelConfig
 from .transformers_player import TransformersPlayer, ActionRecord
 from .metrics import MetricsCollector, HandResult
 from .game import EvalPokerGame
+from .openai_player import OpenAIPlayer
+from .observability import ActionTrace, ModelObservability, ObservabilityCollector
 
 __all__ = [
     "HardwareConfig",
@@ -16,4 +18,8 @@ __all__ = [
     "MetricsCollector",
     "HandResult",
     "EvalPokerGame",
+    "OpenAIPlayer",
+    "ActionTrace",
+    "ModelObservability",
+    "ObservabilityCollector",
 ]
