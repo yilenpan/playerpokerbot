@@ -49,6 +49,10 @@ def parse_args():
                        help="Number of hands to play (default: 10)")
     parser.add_argument("--trace-file", "-t", type=Path,
                        help="File to dump LLM reasoning traces (JSONL format)")
+    parser.add_argument("--log-sample", type=int, default=5,
+                       help="Log every Nth hand (default: 5, use 100 for long runs)")
+    parser.add_argument("--log-dir", default="logs",
+                       help="Directory for hand logs (default: logs)")
     return parser.parse_args()
 
 
@@ -79,7 +83,11 @@ def main():
 
     # Create game
     human = HumanPlayer()
-    game = PokerGame(human, opponents, args.stack, sb, bb)
+    game = PokerGame(
+        human, opponents, args.stack, sb, bb,
+        log_sample_rate=args.log_sample,
+        log_dir=args.log_dir,
+    )
 
     # Play
     game.play_session(args.hands)

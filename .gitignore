@@ -52,3 +52,6 @@ htmlcov/
 
 traces/
 traces.jsonl
+
+# Hand logs
+logs/

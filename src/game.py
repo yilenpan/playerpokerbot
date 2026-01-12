@@ -3,7 +3,7 @@
 import os
 import random
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from pokerkit import NoLimitTexasHoldem, Automation
 
@@ -14,6 +14,7 @@ try:
     )
     from .actions import ParsedAction
     from .players import OllamaPlayer, HumanPlayer
+    from .logger import HandLogger
 except ImportError:
     from cards import (
         pretty_card, format_cards,
@@ -21,6 +22,7 @@ except ImportError:
     )
     from actions import ParsedAction
     from players import OllamaPlayer, HumanPlayer
+    from logger import HandLogger
 
 
 class PokerGame:
@@ -33,6 +35,8 @@ class PokerGame:
         starting_stack: int = 10000,
         small_blind: int = 50,
         big_blind: int = 100,
+        log_sample_rate: int = 5,
+        log_dir: str = "logs",
     ):
         self.human = human
         self.opponents = opponents
@@ -47,6 +51,9 @@ class PokerGame:
         self.button = 0
         self.hand_num = 0
 
+        # Hand logger (samples every Nth hand)
+        self.logger = HandLogger(log_dir=log_dir, sample_rate=log_sample_rate)
+
     def play_session(self, num_hands: int = 10):
         """Play a session of hands."""
         print()
@@ -59,6 +66,14 @@ class PokerGame:
         print(f"  Hands: {num_hands}")
         print(f"{BOLD}{'='*60}{RESET}")
 
+        # Log session start
+        self.logger.log_session_start(
+            num_players=self.num_players,
+            starting_stack=self.starting_stack,
+            blinds=(self.small_blind, self.big_blind),
+            num_hands=num_hands,
+        )
+
         for _ in range(num_hands):
             if not self._play_hand():
                 break
@@ -68,6 +83,16 @@ class PokerGame:
                 break
 
         self._show_final_results()
+
+        # Log session end
+        player_names = [self._player_name_plain(i) for i in range(self.num_players)]
+        self.logger.log_session_end(
+            hands_played=self.hand_num,
+            final_stacks=self.stacks,
+            player_names=player_names,
+            starting_stack=self.starting_stack,
+        )
+
         self.shutdown()
 
     def _play_hand(self) -> bool:
@@ -147,11 +172,28 @@ class PokerGame:
         quit_requested = False
         stacks_before = self.stacks.copy()  # Track for winner detection
 
+        # Log hand start (if sampled)
+        player_names = [self._player_name_plain(i) for i in range(self.num_players)]
+        self.logger.start_hand(
+            hand_num=self.hand_num,
+            player_names=player_names,
+            stacks=self.stacks,
+            hole_cards=hole_cards,
+            button_pos=self.button,
+            sb_pos=sb_pos,
+            bb_pos=bb_pos,
+            blinds=(self.small_blind, self.big_blind),
+        )
+
         # Betting rounds
         streets = ["Preflop", "Flop", "Turn", "River"]
         for street_idx, street in enumerate(streets):
             if state.status is False:  # Hand is over
                 break
+
+            # End previous street in logger
+            if street_idx > 0:
+                self.logger.end_street()
 
             # Deal community cards
             if street == "Flop":
@@ -170,6 +212,9 @@ class PokerGame:
             elif street == "Preflop":
                 print(f"\n  {BOLD}=== PREFLOP ==={RESET}")
 
+            # Log street start
+            self.logger.start_street(street, board)
+
             # Betting loop
             board_strs = [str(c) for c in board]  # Convert for player display
             error_occurred = False
@@ -184,6 +229,8 @@ class PokerGame:
                     if action.action_type == "quit":
                         quit_requested = True
                         action = ParsedAction("fold")
+                    # Log human action
+                    self.logger.log_action(actor, self._player_name_plain(actor), str(action))
                 else:
                     # Ollama's turn
                     action = self._get_ollama_action(
@@ -197,6 +244,8 @@ class PokerGame:
                         error_occurred = True
                         break
                     print(f"  {YELLOW}{name} {action}{RESET}")
+                    # Log LLM action
+                    self.logger.log_action(actor, self._player_name_plain(actor), str(action))
 
                 # Execute action
                 self._execute_action(state, action)
@@ -275,6 +324,14 @@ class PokerGame:
                 winners = [i]
             elif gain == max_gain and gain > 0:
                 winners.append(i)
+
+        # Log hand end (if sampled)
+        self.logger.end_street()  # Close any open street
+        self.logger.end_hand(
+            final_stacks=self.stacks,
+            winners=winners,
+            chips_won=max_gain,
+        )
 
         # Clear terminal to hide reasoning traces
         os.system('clear' if os.name != 'nt' else 'cls')
@@ -389,10 +446,16 @@ class PokerGame:
         print(f"{BOLD}{'='*60}{RESET}")
 
     def _player_name(self, idx: int) -> str:
-        """Get player name."""
+        """Get player name with ANSI colors."""
         if idx == 0:
             return f"{GREEN}You{RESET}"
         return f"{BLUE}{self.opponents[idx-1].name}{RESET}"
+
+    def _player_name_plain(self, idx: int) -> str:
+        """Get player name without ANSI colors (for logging)."""
+        if idx == 0:
+            return "You"
+        return self.opponents[idx-1].name
 
     def _get_position_name(self, idx: int) -> str:
         """Get position name."""
