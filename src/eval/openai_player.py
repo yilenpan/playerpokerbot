@@ -143,6 +143,56 @@ Think step by step, then output exactly ONE action tag."""
 
         return action
 
+    def get_action_with_prompt(
+        self,
+        prompt_text: str,
+        hole_cards: Tuple[str, str],
+        board: List[str],
+        pot: int,
+        to_call: int,
+        stack: int,
+        position: str,
+    ) -> ParsedAction:
+        """Get action using a pre-built prompt (pokergpt format)."""
+        start = time.perf_counter()
+
+        try:
+            response_text, tokens_in, tokens_out = self._call_api(prompt_text)
+            can_check = to_call == 0
+            action = self.parser.parse(response_text, can_check, stack)
+            thinking = ""  # OpenAI doesn't have explicit thinking blocks
+        except Exception as e:
+            response_text = f"ERROR: {e}"
+            tokens_in = 0
+            tokens_out = 0
+            action = ParsedAction("fold")
+            thinking = ""
+
+        latency = (time.perf_counter() - start) * 1000
+
+        self.action_history.append(ActionRecord(
+            hand_id=self._hand_id,
+            street=self._street,
+            hole_cards=hole_cards,
+            board=list(board),
+            pot=pot,
+            to_call=to_call,
+            stack=stack,
+            position=position,
+            action=action,
+            thinking=thinking,
+            response=response_text[:500],
+            latency_ms=latency,
+            tokens_input=tokens_in,
+            tokens_output=tokens_out,
+        ))
+
+        return action
+
+    def get_last_record(self) -> Optional[ActionRecord]:
+        """Get the last action record."""
+        return self.action_history[-1] if self.action_history else None
+
     def _build_prompt(
         self,
         hole_cards: Tuple[str, str],

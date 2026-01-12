@@ -42,7 +42,17 @@ class TransformersPlayer:
 Output format: <action>ACTION</action>
 - <action>f</action> = fold
 - <action>cc</action> = check or call
-- <action>cbr AMOUNT</action> = bet or raise to AMOUNT
+- <action>cbr X</action> = bet or raise to X (multiple of big blind)
+
+VALID:
+<action>f</action>
+<action>cc</action>
+<action>cbr 6</action>
+
+INVALID:
+<action>fold</action> -- NOT PHH FORMAT
+<action>p6 cc</action> -- DO NOT SPECIFY PLAYER
+<action>cbr 1 5</action> -- INVALID PHH
 
 Think step by step, then output exactly ONE action tag."""
 
@@ -87,7 +97,7 @@ Think step by step, then output exactly ONE action tag."""
         position: str,
         num_players: int,
     ) -> ParsedAction:
-        """Get action via model.generate()."""
+        """Get action via model.generate() using simple prompt format."""
         start = time.perf_counter()
 
         prompt = self._build_prompt(
@@ -124,6 +134,62 @@ Think step by step, then output exactly ONE action tag."""
         ))
 
         return action
+
+    def get_action_with_prompt(
+        self,
+        prompt_text: str,
+        hole_cards: Tuple[str, str],
+        board: List[str],
+        pot: int,
+        to_call: int,
+        stack: int,
+        position: str,
+    ) -> ParsedAction:
+        """Get action using a pre-built prompt (pokergpt format)."""
+        start = time.perf_counter()
+
+        # Format as chat with system prompt
+        messages = [
+            {"role": "system", "content": self.SYSTEM_PROMPT},
+            {"role": "user", "content": prompt_text},
+        ]
+        full_prompt = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+        try:
+            thinking, response, tokens_gen = self._generate(full_prompt)
+            can_check = to_call == 0
+            action = self.parser.parse(response, can_check, stack)
+        except Exception as e:
+            thinking = ""
+            response = f"ERROR: {e}"
+            tokens_gen = 0
+            action = ParsedAction("fold")
+
+        latency = (time.perf_counter() - start) * 1000
+
+        self.action_history.append(ActionRecord(
+            hand_id=self._hand_id,
+            street=self._street,
+            hole_cards=hole_cards,
+            board=list(board),
+            pot=pot,
+            to_call=to_call,
+            stack=stack,
+            position=position,
+            action=action,
+            thinking=thinking[:1000],
+            response=response[:500],
+            latency_ms=latency,
+            tokens_generated=tokens_gen,
+        ))
+
+        return action
+
+    def get_last_record(self):
+        """Get the last action record."""
+        return self.action_history[-1] if self.action_history else None
 
     def _build_prompt(
         self,

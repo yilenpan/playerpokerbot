@@ -7,6 +7,7 @@ from .metrics import MetricsCollector, HandResult
 from .game import EvalPokerGame
 from .openai_player import OpenAIPlayer
 from .observability import ActionTrace, ModelObservability, ObservabilityCollector
+from .prompt_builder import PromptBuilder, pretty_card, score_hole_cards, get_position_name
 
 __all__ = [
     "HardwareConfig",
@@ -22,4 +23,8 @@ __all__ = [
     "ActionTrace",
     "ModelObservability",
     "ObservabilityCollector",
+    "PromptBuilder",
+    "pretty_card",
+    "score_hole_cards",
+    "get_position_name",
 ]
