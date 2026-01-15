@@ -37,7 +37,7 @@ class ActionParser:
     RE_ACTION_TAG = re.compile(r'<action>\s*(.+?)\s*</action>', re.IGNORECASE | re.DOTALL)
     RE_FOLD = re.compile(r'\b(f|fold)\b', re.IGNORECASE)
     RE_CC = re.compile(r'\b(cc|call|check)\b', re.IGNORECASE)
-    RE_CBR = re.compile(r'\b(?:cbr|bet|raise)\s*(\d+)', re.IGNORECASE)
+    RE_CBR = re.compile(r'\b(?:cbr|bet|raise)\s*(?:to\s+)?(\d+)', re.IGNORECASE)
     RE_ALL_IN = re.compile(r'\b(?:all.?in|allin|shove)\b', re.IGNORECASE)
 
     def parse(self, response: str, can_check: bool = False, stack: int = 0) -> ParsedAction:
