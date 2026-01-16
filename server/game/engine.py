@@ -31,7 +31,6 @@ class PokerEngine:
         self._state = None
         self._hole_cards: list[tuple[str, str]] = []
         self._board: list[str] = []
-        self._deck: list = []
 
     def start_hand(self) -> bool:
         """Start a new hand. Returns False if hand cannot be started."""
@@ -51,6 +50,7 @@ class PokerEngine:
                     Automation.BLIND_OR_STRADDLE_POSTING,
                     Automation.CARD_BURNING,
                     Automation.HOLE_DEALING,
+                    Automation.BOARD_DEALING,
                     Automation.HOLE_CARDS_SHOWING_OR_MUCKING,
                     Automation.HAND_KILLING,
                     Automation.CHIPS_PUSHING,
@@ -75,10 +75,6 @@ class PokerEngine:
             else:
                 raise RuntimeError(f"Failed to deal hole cards for player {i}")
 
-        # Prepare deck for community cards
-        dealable = list(self._state.get_dealable_cards())
-        random.shuffle(dealable)
-        self._deck = dealable
         self._board = []
 
         return True
@@ -92,28 +88,18 @@ class PokerEngine:
         if self._state.actor_index is not None:
             return None
 
+        # Update board from state (cards are dealt automatically by PokerKit)
+        state_board = [repr(c) for c in self._state.board_cards]
+        prev_count = len(self._board)
+        self._board = state_board
+
         current_street = self.get_street()
 
-        if current_street == Street.PREFLOP and len(self._board) == 0:
-            # Deal flop
-            for _ in range(3):
-                card = self._deck.pop()
-                self._board.append(repr(card))
-                self._state.deal_board(card)
+        if prev_count == 0 and len(self._board) == 3:
             return Street.FLOP
-
-        elif current_street == Street.FLOP and len(self._board) == 3:
-            # Deal turn
-            card = self._deck.pop()
-            self._board.append(repr(card))
-            self._state.deal_board(card)
+        elif prev_count == 3 and len(self._board) == 4:
             return Street.TURN
-
-        elif current_street == Street.TURN and len(self._board) == 4:
-            # Deal river
-            card = self._deck.pop()
-            self._board.append(repr(card))
-            self._state.deal_board(card)
+        elif prev_count == 4 and len(self._board) == 5:
             return Street.RIVER
 
         return None
