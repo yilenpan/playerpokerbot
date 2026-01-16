@@ -133,6 +133,7 @@ class PokerGame:
                     Automation.BLIND_OR_STRADDLE_POSTING,
                     Automation.CARD_BURNING,
                     Automation.HOLE_DEALING,
+                    Automation.BOARD_DEALING,
                     Automation.HOLE_CARDS_SHOWING_OR_MUCKING,
                     Automation.HAND_KILLING,
                     Automation.CHIPS_PUSHING,
@@ -157,11 +158,6 @@ class PokerGame:
                 hole_cards.append((str(cards[0]), str(cards[1])))
             else:
                 hole_cards.append(("??", "??"))
-
-        # Get dealable cards from PokerKit (respects what's already dealt)
-        dealable = list(state.get_dealable_cards())
-        random.shuffle(dealable)
-        deck = dealable  # Keep as Card objects for deal_board()
 
         # Show human's cards
         human_cards = hole_cards[0]
@@ -195,19 +191,13 @@ class PokerGame:
             if street_idx > 0:
                 self.logger.end_street()
 
-            # Deal community cards
+            # Get community cards from state (dealt automatically by PokerKit)
+            board = list(state.board_cards)
             if street == "Flop":
-                board = [deck.pop(), deck.pop(), deck.pop()]
-                for card in board:
-                    state.deal_board(card)
-                print(f"\n  {BOLD}=== FLOP ==={RESET} {format_cards([str(c) for c in board])}")
+                print(f"\n  {BOLD}=== FLOP ==={RESET} {format_cards([str(c) for c in board[:3]])}")
             elif street == "Turn":
-                board.append(deck.pop())
-                state.deal_board(board[-1])
                 print(f"\n  {BOLD}=== TURN ==={RESET} {format_cards([str(c) for c in board])}")
             elif street == "River":
-                board.append(deck.pop())
-                state.deal_board(board[-1])
                 print(f"\n  {BOLD}=== RIVER ==={RESET} {format_cards([str(c) for c in board])}")
             elif street == "Preflop":
                 print(f"\n  {BOLD}=== PREFLOP ==={RESET}")

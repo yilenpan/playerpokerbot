@@ -95,6 +95,7 @@ class EvalPokerGame:
                     Automation.BLIND_OR_STRADDLE_POSTING,
                     Automation.CARD_BURNING,
                     Automation.HOLE_DEALING,
+                    Automation.BOARD_DEALING,
                     Automation.HOLE_CARDS_SHOWING_OR_MUCKING,
                     Automation.HAND_KILLING,
                     Automation.CHIPS_PUSHING,
@@ -121,12 +122,6 @@ class EvalPokerGame:
             else:
                 hole_cards.append(("??", "??"))
 
-        # Get deck for community cards
-        dealable = list(state.get_dealable_cards())
-        random.shuffle(dealable)
-        deck = dealable
-
-        board = []
         streets = ["preflop", "flop", "turn", "river"]
 
         for street in streets:
@@ -137,20 +132,8 @@ class EvalPokerGame:
             for player in self.players:
                 player.set_hand_context(self.hand_num, street)
 
-            # Deal community cards
-            if street == "flop":
-                board = [deck.pop(), deck.pop(), deck.pop()]
-                for card in board:
-                    try:
-                        state.deal_board(card)
-                    except Exception:
-                        pass
-            elif street in ("turn", "river"):
-                board.append(deck.pop())
-                try:
-                    state.deal_board(board[-1])
-                except Exception:
-                    pass
+            # Get community cards from state (dealt automatically by PokerKit)
+            board = list(state.board_cards)
 
             # Betting loop
             board_strs = [str(c) for c in board]
