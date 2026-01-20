@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument("--opponents", "-n", type=int, default=1,
                        help="Number of Ollama opponents (default: 1)")
     parser.add_argument("--models", "-m", nargs="+",
-                       default=["hf.co/unsloth/Qwen3-4B-Thinking-2507-GGUF:latest"],
+                       default=["hf.co/YiPz/llama3-8b-pokerbench-sft-gguf:Q4_K_M"],
                        help="Ollama model(s) to play against")
     parser.add_argument("--endpoint", default="http://localhost:11434",
                        help="Ollama endpoint")
